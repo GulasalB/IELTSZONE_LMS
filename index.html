@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IELTS ZONE Enrolment System - high-fidelity prototype</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:14px Arial,sans-serif;background:#f3f5f9;color:#1c2333}
+header{background:#12305c;color:#fff;padding:10px 18px;display:flex;gap:10px;align-items:center}header b{flex:1;font-size:17px}
+select,input,button{font:inherit;padding:6px 9px;border:1px solid #c5ccd8;border-radius:6px}
+button{background:#1f5fbf;color:#fff;border:0;cursor:pointer;margin:2px}button.g{background:#e6ebf3;color:#1c2333}button.r{background:#c0392b}
+nav{display:flex;gap:4px;padding:8px 18px;background:#fff;border-bottom:1px solid #dde2ea}nav button{background:none;color:#1c2333}nav .on{background:#e3ecfb;color:#1f5fbf;font-weight:bold}
+main{padding:18px;max-width:1100px;margin:auto}.card{background:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 3px #0002}
+h3,h4{margin:0 0 10px}.kpi{display:flex;gap:12px;margin-bottom:14px}.kpi div{flex:1;background:#fff;padding:12px;border-radius:10px;text-align:center;box-shadow:0 1px 3px #0002}.kpi b{display:block;font-size:26px;color:#1f5fbf}
+table{width:100%;border-collapse:collapse}td,th{padding:7px;border-bottom:1px solid #eef0f4;text-align:left;vertical-align:middle}th{color:#556;font-size:12px}
+.tag{padding:2px 9px;border-radius:10px;background:#e3ecfb;font-size:12px;font-weight:normal}.w{background:#fdeccc}.ok{background:#d7f3df}
+label{display:block;margin:9px 0 3px;font-size:12px;color:#556}.row{display:flex;gap:12px}.row>div{flex:1}.row input,.row select,form>input{width:100%}
+#toast{position:fixed;bottom:18px;right:18px;background:#1c2333;color:#fff;padding:11px 16px;border-radius:8px;display:none;max-width:380px}#toast.bad{background:#c0392b}
+.rc{border:1px dashed #1f5fbf;background:#f6f9ff}
+</style></head><body>
+<header><b>IELTS ZONE &middot; Student Enrolment System</b><span>Role:</span><select id="role"></select><span>Branch: Amir Temur</span><button class="g" id="reset">Reset demo data</button></header>
+<nav></nav><main></main><div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),D=864e5,fmt=n=>n.toLocaleString('en')+' UZS',now=()=>new Date().toISOString().slice(0,10),ad=n=>new Date(Date.now()+n*D).toISOString().slice(0,10),
+e=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),
+FEES={'General English':900000,IELTS:1200000,SAT:1500000,CEFR:1000000,'Mock exam':150000},GRACE=3,LV=['Beginner','Intermediate','Advanced'],
+ST={R:'Registered - awaiting placement test',P:'Placed - awaiting group',G:'Group assigned - awaiting payment',M:'Mock exam booking',Y:'Ready for activation',A:'Active',X:'Archived'},
+ROLES={Administrator:['today','students','register','groups'],Cashier:['today','pay'],Coordinator:['today','report','log'],'Branch Manager':['today','report','refunds','log']},
+NAMES={today:'Today',students:'Students',register:'Register student',groups:'Groups',pay:'Payments',report:'Monthly report',refunds:'Refunds',log:'Activity log'};
+let role='Administrator',view='today',sel=null,ps=null,rc=null,S=load();
+function seed(){const s=(id,name,course,level,status,o)=>({id,name,course,level,status,channel:'Walk-in',phone:'+99890123'+id,tg:'@'+name.split(' ')[0].toLowerCase(),backup:'',parent:'+99893555'+id,created:ad(-60),act:'',arch:'',reason:'',group:'',due:'',absent:false,mock:'',...o}),
+p=(id,sid,amt,m,d)=>({id,sid,amt,m,d,by:'Cashier',rcp:'R-000'+id});
+return{n:1006,r:5,
+st:[s(1000,'Sevara Nazarova','General English','Beginner','X',{act:ad(-90),arch:now(),reason:'Too expensive',group:''}),
+s(1001,'Aziz Karimov','IELTS','Advanced','A',{group:'g3',due:ad(-5),act:ad(-40)}),
+s(1002,'Madina Rustamova','IELTS','Advanced','A',{group:'g3',act:ad(-35)}),
+s(1003,'Jasur Tursunov','General English','Intermediate','A',{group:'g1',due:ad(-1),tg:'',backup:'SMS',act:ad(-30)}),
+s(1004,'Dilnoza Aliyeva','General English','','R',{created:now()}),
+s(1005,'Bekzod Yusupov','IELTS','Intermediate','P',{mock:'Mon-Wed-Fri 18:00',created:ad(-1)})],
+gr:[['g1','General English','Intermediate','Mon-Wed-Fri 09:00','Ms Nodira',12,[1003]],['g2','General English','Intermediate','Tue-Thu-Sat 14:00','Mr Sardor',2,[9001,9002]],['g3','IELTS','Advanced','Mon-Wed-Fri 18:00','Ms Laylo',10,[1001,1002]],['g4','IELTS','Intermediate','Tue-Thu-Sat 10:00','Mr Akmal',10,[]],['g5','IELTS','Intermediate','Mon-Wed-Fri 18:00','Ms Zarina',10,[]]].map(a=>({id:a[0],course:a[1],level:a[2],slot:a[3],teacher:a[4],seats:a[5],m:a[6]})),
+pay:[p(1,1001,600000,'Card',ad(-30)),p(2,1002,1200000,'Click',ad(-3)),p(3,1003,450000,'Cash',ad(-28)),p(4,1000,300000,'Payme',ad(-80))],
+rf:[{id:1,sid:1000,amt:300000,why:'Group cancelled by the center',st:'Pending'}],log:[]}}
+function load(){try{return JSON.parse(localStorage.izs)||seed()}catch(x){return seed()}}
+const save=()=>{try{localStorage.izs=JSON.stringify(S)}catch(x){}},get=id=>S.st.find(x=>x.id==id),grp=id=>S.gr.find(g=>g.id==id),
+paid=s=>S.pay.filter(p=>p.sid==s.id&&!p.rev).reduce((a,p)=>a+p.amt,0),bal=s=>FEES[s.course]-paid(s),
+dl=s=>s.due?Math.floor((new Date(now())-new Date(s.due))/D):0,od=s=>s.status=='A'&&bal(s)>0&&dl(s)>GRACE,
+chan=s=>s.tg?'Telegram':(s.backup||'SMS'),can=(...r)=>r.includes(role),
+log=m=>S.log.unshift({t:new Date().toLocaleString('en-GB'),role,m}),
+toast=(m,bad)=>{const t=$('#toast');t.textContent=m;t.className=bad?'bad':'';t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',4000)},
+sug=(w,p)=>{const pct=Math.round((w*2+p*10)/2);return{pct,i:pct<35?0:pct<70?1:2,b:[35,70].some(x=>Math.abs(pct-x)<=3)}},
+opt=(a,v)=>a.map(x=>`<option${x==v?' selected':''}>${x}</option>`).join(''),
+btn=(a,id,t,c='')=>`<button class="${c}" data-a="${a}" data-id="${id}">${t}</button>`;
+const V={
+today(){const a=S.st.filter(x=>x.status!='X'),t=[];
+a.forEach(s=>{const n=e(s.name);
+if(s.status=='R')t.push([`${n}: expected for the placement test`,can('Administrator')?btn('open',s.id,'Open'):'']);
+if(s.status=='Y')t.push([`${n}: paid, ready for activation`,can('Administrator')?btn('open',s.id,'Open'):'']);
+if(s.absent)t.push([`Call absent student ${n} (parent: ${s.parent})`,can('Administrator')?btn('call',s.id,'Answered')+btn('call2',s.id,'No answer','g'):'']);
+if(od(s))t.push([`${n}: payment overdue by ${dl(s)-GRACE} day(s) after grace period, balance ${fmt(bal(s))}`,can('Cashier')?btn('remind',s.id,'Send reminder via '+chan(s)):'']);
+else if(s.status=='A'&&bal(s)>0&&dl(s)>0)t.push([`${n}: payment late, still inside the ${GRACE}-day grace period`,'<span class="tag w">grace</span>'])});
+return`<div class="kpi">${[['Active students',a.filter(x=>x.status=='A').length],['Awaiting placement test',a.filter(x=>x.status=='R').length],['Awaiting group or payment',a.filter(x=>'PGM'.includes(x.status)).length],['Overdue payments',a.filter(od).length]].map(k=>`<div><b>${k[1]}</b>${k[0]}</div>`).join('')}</div>
+<div class="card"><h3>Daily task list</h3><table>${t.map(r=>`<tr><td>${r[0]}</td><td style="text-align:right">${r[1]}</td></tr>`).join('')||'<tr><td>No tasks today</td></tr>'}</table></div>`},
+students(){return`<div class="card"><h3>Students</h3><input id="q" placeholder="Search by name, phone or ID" style="width:100%;margin-bottom:8px"><table><tr><th>ID</th><th>Name</th><th>Course</th><th>Status</th><th>Balance</th><th></th></tr><tbody id="tb">${S.st.map(s=>`<tr><td>${s.id}</td><td>${e(s.name)}</td><td>${s.course} ${s.level}</td><td><span class="tag${s.status=='A'?' ok':''}">${ST[s.status]}</span></td><td>${s.status=='X'?'-':fmt(bal(s))}</td><td>${btn('open',s.id,'Open','g')}</td></tr>`).join('')}</tbody></table></div>${sel?detail(get(sel)):''}`},
+register(){const d=document;return`<div class="card"><h3>Register new student</h3><form data-f="reg"><div class="row"><div><label>How did the student contact us?</label><select name="ch">${opt(['Walk-in','Phone','Telegram','Instagram'])}</select></div><div><label>Course</label><select name="co">${opt(Object.keys(FEES))}</select></div></div>
+<div class="row"><div><label>Full name</label><input name="nm" required></div><div><label>Date of birth</label><input name="dob" type="date" required></div></div>
+<h4 style="margin-top:14px">Contact details</h4><div class="row"><div><label>Student phone (+998XXXXXXXXX)</label><input name="ph" required></div><div><label>Student Telegram account</label><input name="tg" placeholder="@username"></div><div><label>Backup contact if no Telegram</label><select name="bk"><option value="">-</option><option>SMS</option><option>Call</option></select></div></div>
+<div class="row"><div><label>Parent phone</label><input name="pp"></div><div><label><input type="checkbox" name="na" style="width:auto"> Not applicable (adult student)</label><input name="nr" placeholder="Reason"></div></div><br><button>Save student</button></form></div>`},
+groups(){return`<div class="card"><h3>Groups</h3><table><tr><th>Course</th><th>Level</th><th>Time</th><th>Teacher</th><th>Seats left</th></tr>${S.gr.map(g=>`<tr><td>${g.course}</td><td>${g.level}</td><td>${g.slot}</td><td>${g.teacher}</td><td><span class="tag ${g.seats-g.m.length?'ok':'w'}">${g.seats-g.m.length} of ${g.seats}</span></td></tr>`).join('')}</table></div>`},
+pay(){const s=get(ps),l=S.st.filter(x=>x.status!='X');
+return`<div class="card"><h3>Process payment</h3><label>Find student</label><select id="ps" style="width:100%"><option value="">Select a student</option>${l.map(x=>`<option value="${x.id}"${x.id==ps?' selected':''}>${x.id} - ${e(x.name)} (${x.course})</option>`).join('')}</select>
+${s?`<p>Course fee <b>${fmt(FEES[s.course])}</b> &middot; paid <b>${fmt(paid(s))}</b> &middot; balance <b>${fmt(bal(s))}</b> &middot; due ${s.due||'-'} &middot; <span class="tag">${ST[s.status]}</span></p>
+<form data-f="pay"><div class="row"><div><label>Amount (UZS)</label><input name="amt" type="number" min="1" required></div><div><label>Method</label><select name="m">${opt(['Cash','Card','Click','Payme'])}</select></div><div><label><input type="checkbox" name="fail" style="width:auto"> Simulate gateway failure</label></div></div><br><button>Record payment</button></form>`:''}</div>
+${rc?`<div class="card rc"><h3>Receipt ${rc.rcp}</h3><p>${e(rc.n)} &middot; ${fmt(rc.amt)} &middot; ${rc.m} &middot; ${rc.d}</p>${btn('sendrc',0,'Send by '+rc.ch)}</div>`:''}
+${s?`<div class="card"><h4>Payment history</h4><table>${S.pay.filter(p=>p.sid==s.id).map(p=>`<tr><td>${p.rcp}</td><td>${p.d}</td><td>${p.m}</td><td>${fmt(p.amt)}</td><td>${p.rev?'<span class="tag w">Reversed: '+e(p.rev)+'</span>':btn('rev',p.id,'Reverse','g')}</td></tr>`).join('')||'<tr><td>No payments yet</td></tr>'}</table></div>`:''}`},
+report(){const ms=now().slice(0,8)+'01',z=S.st,fin=z.filter(x=>x.status=='A').length,rs={},rv={};
+z.filter(x=>x.arch>=ms&&x.arch).forEach(x=>rs[x.reason]=(rs[x.reason]||0)+1);S.pay.filter(p=>p.d>=ms&&!p.rev).forEach(p=>rv[p.m]=(rv[p.m]||0)+p.amt);
+return`<div class="kpi">${[['New students',z.filter(x=>x.created>=ms).length],['Active at start of month',z.filter(x=>x.act&&x.act<ms&&(!x.arch||x.arch>=ms)).length],['Active now',fin],['Archived this month',z.filter(x=>x.arch>=ms&&x.arch).length]].map(k=>`<div><b>${k[1]}</b>${k[0]}</div>`).join('')}</div>
+<div class="row"><div class="card"><h4>Archived students by reason</h4><table>${Object.entries(rs).map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table></div><div class="card"><h4>Income this month by method</h4><table>${Object.entries(rv).map(r=>`<tr><td>${r[0]}</td><td>${fmt(r[1])}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table></div></div>`},
+refunds(){return`<div class="card"><h3>Refund requests</h3><table><tr><th>Student</th><th>Amount</th><th>Reason</th><th>Status</th><th></th></tr>${S.rf.map(r=>`<tr><td>${e(get(r.sid).name)}</td><td>${fmt(r.amt)}</td><td>${e(r.why)}</td><td><span class="tag ${r.st=='Pending'?'w':'ok'}">${r.st}</span></td><td>${r.st=='Pending'&&can('Branch Manager')?btn('ok',r.id,'Approve')+btn('no',r.id,'Reject','r'):''}</td></tr>`).join('')}</table></div>`},
+log(){return`<div class="card"><h3>Activity log</h3><table><tr><th>When</th><th>Role</th><th>Action</th></tr>${S.log.map(l=>`<tr><td>${l.t}</td><td>${l.role}</td><td>${e(l.m)}</td></tr>`).join('')||'<tr><td>No actions yet</td></tr>'}</table></div>`}};
+function detail(s){const g=grp(s.group),A=can('Administrator');let h=`<div class="card"><h3>${e(s.name)} <span class="tag">${ST[s.status]}</span></h3><p>#${s.id} &middot; ${s.course} ${s.level} &middot; via ${s.channel} &middot; ${s.phone} &middot; Telegram: ${s.tg||'none (backup: '+s.backup+')'} &middot; Parent: ${s.parent||'n/a'}${g?' &middot; Group: '+g.slot:''}${s.mock?' &middot; Mock test booked: '+s.mock:''}</p>`;
+if(!A)return h+'</div>';
+if(s.status=='R')h+=`<form data-f="place"><h4>Placement test</h4><div class="row"><div><label>Written score (0-50)</label><input name="w" type="number" min="0" max="50" required></div><div><label>Speaking check (0-10)</label><input name="sp" type="number" min="0" max="10" required></div><div><label>Level</label><select name="lv">${opt(LV,'Intermediate')}</select></div></div><p id="hint" class="tag">Enter both scores to get a suggested level</p><label>Comment (needed if you change the level or the result is borderline)</label><input name="c"><br><br><button>Save result</button></form>`;
+if(s.status=='P'){const m=S.gr.filter(x=>x.course==s.course&&x.level==s.level);h+=`<h4>Assign to group</h4><table>${m.map(x=>`<tr><td>${x.slot}</td><td>${x.teacher}</td><td>${x.seats-x.m.length} seats left</td><td>${btn('assign',x.id,'Assign')}</td></tr>`).join('')||'<tr><td>No matching groups</td></tr>'}</table>${btn('wait',s.id,'Put on waiting list','g')}`}
+if(s.status=='G'||s.status=='M')h+='<p>Waiting for the first payment at the cashier desk.</p>';
+if(s.status=='Y')h+=btn('act',s.id,'Activate student');
+if(s.status=='A')h+=btn('abs',s.id,'Mark absent today','g')+`<form data-f="arch" style="margin-top:10px"><h4>Archive student</h4><div class="row"><div><select name="rs"><option value="">Select reason (required)</option>${['Moved away','Finished course','Too expensive','Schedule problem','Other'].map(x=>`<option>${x}</option>`).join('')}</select></div><div><label style="margin:6px 0"><input type="checkbox" name="rf" style="width:auto"> Center made a mistake, request refund</label></div></div><button class="r">Archive</button></form>`;
+return h+'</div>'}
+const A={nav:d=>{view=d.v;sel=null},open:d=>{sel=+d.id;view='students'},
+remind:d=>{const s=get(d.id);toast(`Payment reminder sent to ${s.name} by ${chan(s)}`);log(`Reminder to #${s.id} via ${chan(s)}`)},
+abs:d=>{get(d.id).absent=true;log(`Marked #${d.id} absent`);toast('Added to the daily task list');view='today'},
+call:d=>{get(d.id).absent=false;log(`Absent call #${d.id}: student answered`)},call2:d=>{log(`Absent call #${d.id}: no answer, will try Telegram`);toast('Logged. Try Telegram next',0)},
+assign:d=>{const s=get(sel),g=grp(d.id);if(g.m.length>=g.seats)return toast('Group is full. Choose another group or use the waiting list.',1);
+if(s.mock==g.slot)return toast(`Schedule conflict: the student has a mock test at ${s.mock}. Choose another group.`,1);
+g.m.push(s.id);s.group=g.id;s.status='G';log(`Assigned #${s.id} to ${g.course} ${g.slot}`);toast('Student assigned. Seats updated.')},
+wait:d=>{log(`#${d.id} put on waiting list`);toast('Added to the waiting list. A follow-up task was created.')},
+act:d=>{const s=get(d.id);s.status='A';s.act=now();log(`Activated #${s.id}`);toast(`Student activated. Confirmation sent by ${chan(s)}`)},
+sendrc:()=>toast(`Receipt ${rc.rcp} sent by ${rc.ch}`),
+rev:d=>{const c=prompt('Reason for reversal (required):');if(!c)return toast('A reason is required to reverse a payment',1);const p=S.pay.find(x=>x.id==d.id);p.rev=c;log(`Reversed ${p.rcp}: ${c}`)},
+ok:d=>{const r=S.rf.find(x=>x.id==d.id);r.st='Approved';log(`Refund #${r.id} approved`)},no:d=>{const r=S.rf.find(x=>x.id==d.id);r.st='Rejected';log(`Refund #${r.id} rejected`)}};
+const F={reg(f){const nm=f.get('nm').trim(),ph=f.get('ph').trim(),tg=f.get('tg').trim(),age=(Date.now()-new Date(f.get('dob')))/(365.25*D),pp=f.get('pp').trim(),na=f.get('na');
+if(!/^\+998\d{9}$/.test(ph))return toast('Phone number must look like +998901234567',1);
+if(!tg&&!f.get('bk'))return toast('No Telegram: choose SMS or Call as the backup contact',1);
+if(!pp&&!(na&&f.get('nr')))return toast('Enter the parent phone, or tick "not applicable" and give a reason',1);
+if(!pp&&age<18)return toast('The student is under 18, so a parent phone is required',1);
+const dup=S.st.find(x=>x.phone==ph||(tg&&x.tg==tg));if(dup&&!confirm(`A record already exists: #${dup.id} ${dup.name}. Is this a sibling in the same family?\nOK = continue, Cancel = stop`))return;
+const c=f.get('co'),s={id:S.n++,name:nm,course:c,level:'',status:c=='Mock exam'?'M':'R',channel:f.get('ch'),phone:ph,tg,backup:f.get('bk'),parent:pp||'n/a',created:now(),act:'',arch:'',reason:'',group:'',due:'',absent:false,mock:''};
+S.st.push(s);log(`Registered #${s.id} ${nm} via ${s.channel}`);toast(`Student saved with ID ${s.id}`);sel=s.id;view='students'},
+place(f){const w=+f.get('w'),p=+f.get('sp'),r=sug(w,p),lv=f.get('lv');if((lv!=LV[r.i]||r.b)&&!f.get('c').trim())return toast('Please write a comment: level changed or result is borderline',1);
+const s=get(sel);s.level=lv;s.status='P';log(`Placement #${s.id}: written ${w}, speaking ${p}, level ${lv}`);toast('Result saved. Now assign a group.')},
+arch(f){const s=get(sel);if(!f.get('rs'))return toast('Archive reason is required',1);s.status='X';s.arch=now();s.reason=f.get('rs');const g=grp(s.group);if(g)g.m=g.m.filter(x=>x!=s.id);s.group='';
+if(f.get('rf'))S.rf.push({id:S.rf.length+1,sid:s.id,amt:paid(s),why:s.reason,st:'Pending'});log(`Archived #${s.id}: ${s.reason}`);toast('Student archived'+(f.get('rf')?'. Refund request sent to the Branch Manager.':'.'));sel=null},
+pay(f){const s=get(ps),amt=+f.get('amt'),m=f.get('m');if(!s.group&&s.status!='M')return toast('This student has no group yet. Send the student to an Administrator.',1);
+if(amt>bal(s)&&!confirm('The amount is bigger than the balance. Save the extra as an advance payment?'))return;
+const done=()=>{const id=S.pay.length+1,rcp='R-'+String(S.r++).padStart(4,'0');S.pay.push({id,sid:s.id,amt,m,d:now(),by:role,rcp});if(s.status=='G'||s.status=='M')s.status='Y';s.due=bal(s)>0?ad(14):'';
+rc={rcp,n:s.name,amt,m,d:now(),ch:chan(s)};log(`Payment ${rcp}: ${fmt(amt)} by ${m} for #${s.id}`);toast(bal(s)>0?`Partial payment saved. Balance ${fmt(bal(s))}`:'Payment saved. Fully paid.');render()};
+if(m=='Click'||m=='Payme'){toast(`Verifying with ${m} gateway...`);setTimeout(()=>f.get('fail')?(log(`Failed ${m} payment for #${s.id}`),toast('Gateway error. Nothing was saved. Try again or choose another method.',1)):done(),800);return 1}done();return 1}};
+function render(){const vs=ROLES[role];if(!vs.includes(view))view=vs[0];$('#role').value=role;
+$('nav').innerHTML=vs.map(v=>`<button class="${v==view?'on':''}" data-a="nav" data-v="${v}">${NAMES[v]}</button>`).join('');$('main').innerHTML=V[view]();save()}
+document.addEventListener('click',x=>{const b=x.target.closest('[data-a]');if(b){A[b.dataset.a](b.dataset);render()}});
+document.addEventListener('submit',x=>{x.preventDefault();const r=F[x.target.dataset.f](new FormData(x.target));if(r!==1)render()});
+document.addEventListener('input',x=>{const f=x.target.form;if(x.target.id=='q'){document.querySelectorAll('#tb tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(x.target.value.toLowerCase())?'':'none')}
+if(f&&f.dataset.f=='place'&&f.w.value!==''&&f.sp.value!==''){const r=sug(+f.w.value,+f.sp.value);f.lv.value=LV[r.i];$('#hint').textContent=`Suggested level: ${LV[r.i]} (score ${r.pct}%)`+(r.b?' - borderline, check with the Coordinator':'')}});
+document.addEventListener('change',x=>{if(x.target.id=='ps'){ps=+x.target.value||null;rc=null;render()}if(x.target.id=='role'){role=x.target.value;view=ROLES[role][0];sel=null;render()}});
+$('#role').innerHTML=Object.keys(ROLES).map(r=>`<option>${r}</option>`).join('');$('#reset').onclick=()=>{S=seed();sel=ps=rc=null;render();toast('Demo data restored')};render();
+</script></body></html>
